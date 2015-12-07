@@ -1,0 +1,331 @@
+\begin{frame}{Mutex}
+\begin{block}{Exclusión mutua - Mutex}
+\begin{itemize}
+  \item Para hacer uso de exclusión mutua, se debe incluir el header \textless mutex\textgreater .
+  \item Ejemplo de uso: deseamos obtener una salida limpia en \textit{cout}, es decir, que no se mezcle la escritura de hebras concurrentes.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Ejemplo básico}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+void print(int value1, int value2, int value3) {
+  static std::mutex m;
+  m.lock();
+  std::cout << value1 << " ";
+  std::cout << value2 << " ";
+  std::cout << value3 << " ";
+  std::cout << std::endl;
+  m.unlock();
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Analizando el ejemplo anterior}
+\begin{itemize}
+  \item Cada vez que una hebra intenta invocar la función \textit{print}, esta intentará adquirir el \textbf{lock} del \textit{mutex}.
+  \item Una vez que una hebra adquiere el \textit{lock}, ésta entra a lo que es conocido como \textbf{sección crítica}. La sección crítica en este caso son las líneas de código que imprimen los 3 valores en la pantalla.
+  \item Ninguna otra hebra puede entrar a la sección crítica mientras el \textit{lock} se encuentre tomado.
+  \item Una vez que la hebra que adquirió el lock termina de ejecutar la sección crítica, ésta libera el lock manualmente realizando un \textbf{unlock}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Analizando el ejemplo anterior}
+\begin{itemize}
+  \item \textbf{NOTA:} la variable mutex, la cual provee los métodos lock y unlock, es declarada \textbf{static} con el fin de que se cree solo una variable del tipo mutex \textbf{común para todas las invocaciones} a \textit{print}.
+  \item Cuando se hace uso de \textit{locks} se serializa el código. \textbf{Atomix} es una alternativa al uso de \textit{locks} pero solo algunos tipos de variables permiten ser manejados a nivel atómico, además de ser solo algunas operaciones las que efectivamente se permiten que se realicen de forma atómica.
+  \item Notar que si llega ocurrir un error dentro de la sección crítica, la hebra que se encuentre ejecutando la sección crítica \textbf{nunca alcanzará a ejecutar el \textit{unlock}} del \textit{mutex}, produciendo que la aplicación se cuelge completamente.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Ejemplo 2: Alternativa try-catch}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+#include <exception>
+void print(int value1, int value2, int value3) {
+  static std::mutex m;
+  m.lock();
+  try {
+    // critical section
+    m.unlock();
+  } catch(std::exception &e) {
+    m.unlock();
+  }
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Mutex con RAII}
+\begin{itemize}
+  \item Una alternativa mejor sería que el \textit{lock} se liberase \textbf{automáticamente} una vez que \textbf{finaliza el scope del mutex}. Así el programador no tendría que preocuparse de liberar manualmente el \textit{lock} poniéndose en cada escenario en que el bloque de código de la sección crítica pudiese fallar.
+  \item Dentro de C++11 se sugiere el uso de manejadores de locks. \textbf{RAII} (Resource Acquisition Is Initialization) es un término que se refiere a que la adquisición de un recurso está limitada por el tiempo de vida  del objeto que lo adquiere. Este idea también puede ser encontrada como \textbf{CADRe} (Constructor Acquires, Destructor Release).
+  \item RAII provee encapsulación y seguridad en caso que ocurran excepciones.
+\end{itemize}
+\end{block}
+\end{frame}
+
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Ejemplo 3: Uso de lock\_guard como manejador de locks}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+void print(int value1, int value2, int value3) {
+  static std::mutex m;
+  std::lock_guard<std::mutex> lock(m);
+  // critical section
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Usando lock\_guard}
+\begin{itemize}
+  \item El constructor de lock\_guard invoca al método \textit{lock} del \textit{mutex}.
+  \item En el instante en que se acaba el \textit{scope} del objeto \textit{lock\_guard} o alguna excepción es arrojada, el destructor del \textit{lock\_guard} realiza una llamada al método \textit{unlock} del \textit{mutex}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Usando unique\_lock}
+\begin{itemize}
+  \item Existe otro manejador de mutex aparte del \textit{lock\_guard}, llamado \textbf{unique\_lock}. La diferencia entre \textit{unique\_lock} y \textit{guard\_lock}, es que el último, solo permite la invocación del \textit{lock} del \textit{mutex} al momento de construcción del objeto \textit{guard\_lock}, es decir, el manejador \textit{unique\_lock} es \textbf{más flexible} permitiendo mayor control sobre la invocación de los métodos \textit{lock} y \textit{unlock}.
+  \item Un objeto del tipo \textit{unique\_lock} permite ser contruido sin necesidad de llamar al método \textit{lock} del \textit{mutex} interno. De todas formas se asegura que al momento en que se acaba su \textit{scope}, el \textit{mutex} se encontrará liberado.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Usando unique\_lock}
+\begin{itemize}
+  \item Cuando se utilizan \textbf{variables de condición} es necesario tener que liberar el \textit{lock} antes de que la hebra se bloquee al tener que ejecutar el \textit{wait}. El uso de \textit{guard\_lock} resulta ser no suficiente para tales casos debido a que se deben especificar \textit{locks} y \textit{unlocks} adicionales a los momento en que se construye y destruye el manejador de \textit{locks}.
+  \item Como regla, \textbf{solo} cuando se realicen \textbf{llamados explícitos} al método \textit{lock} del \textit{mutex} se deberá también llamar explícitamente al método \textit{unlock}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Tipos de mutex}
+\begin{description}
+  \item[Mutex:] El \textit{mutex} tradicional. Si una misma hebra llama al método \textit{lock} de un \textit{mutex} dos veces consecutivas sin hacer un \textit{unlock}, la segunda llamada producirá un \textbf{deadlock}.
+  \item[Recursive\_mutex:] Permite que el \textit{lock} sea obtenido más de una vez por la misma hebra (similar a la característica de exclusión mutua en $\mu$C++).
+\end{description}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Tipos de mutex}
+\begin{description}
+  \item[Timed\_mutex:] \textit{Mutex} que además de los métodos \textit{lock} y \textit{unlock}, proveen también los métodos \textbf{try\_lock\_for} y \textbf{try\_lock\_until}, los cuales intentan durante una determinada cantidad de tiempo adquirir el \textit{lock}. Ambos métodos retornan después de tal periodo independientemente de si lograron o no adquirirlo. En caso en que la adquisición fue existosa, los métodos retornan verdadero y cierran el \textit{lock} (\textbf{recordar hacer el posterior unlock}). En caso que expire el \textit{timeout}, los métodos retornan falso y no hay nada que se necesite liberar.
+  \item[Recursive\_timed\_mutex:] Es la unión de las dos características anteriores.
+\end{description}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Spinlock con try\_lock}
+\begin{itemize}
+  \item El método \textbf{try\_lock} es común a todos los tipos de \textit{mutex}. Este método puede ser utilizado para hacer un \textbf{spinlock}.
+  \item Recordar que cuando una hebra encuentra que el \textit{lock} está tomado, ésta se \textbf{bloquea} esperando a que se libere el \textit{lock}. Un \textit{spinlock}, en vez de bloquear a la hebra, comienza a hacer lo que es conocido como \textbf{busy-waiting}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Spinlock con try\_lock}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+int main(int argc, char *argv[]) {
+  std::mutex mutex;
+  while (!mutex.try_lock()) {
+    ;	// busy-waiting
+  }
+  // critical section
+  mutex.unlock();
+  
+  return 0;
+}
+
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{table}[h]\footnotesize
+\centering
+\caption{Resumen tipo de mutex y métodos}
+\label{my-label}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\rowcolor[HTML]{ECF4FF} 
+\multicolumn{1}{|c|}{\cellcolor[HTML]{ECF4FF}{\bf Método}} & {\bf Mutex} & {\bf Recursive\_mutex} & {\bf Timed\_mutex} & {\bf Recursive\_timed\_mutex} \\ \hline
+\rowcolor[HTML]{EFEFEF} 
+lock                                                       & X           & X                      & X                  & X                             \\ \hline
+\rowcolor[HTML]{EFEFEF} 
+unlock                                                     & X           & X                      & X                  & X                             \\ \hline
+\rowcolor[HTML]{EFEFEF} 
+try\_lock                                                  & X           & X                      & X                  & X                             \\ \hline
+\rowcolor[HTML]{CBCEFB} 
+try\_lock\_for                                             &             &                        & X                  & X                             \\ \hline
+\rowcolor[HTML]{CBCEFB} 
+try\_lock\_until                                           &             &                        & X                  & X                             \\ \hline
+\end{tabular}
+\end{table}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{table}[h]\footnotesize
+\centering
+\caption{Resumen tipo de manejadores de mutex y métodos}
+\label{my-label}
+\begin{tabular}{|l|c|c|}
+\hline
+\rowcolor[HTML]{ECF4FF} 
+\multicolumn{1}{|c|}{\cellcolor[HTML]{ECF4FF}{\bf Método}} & {\bf Lock\_guard} & {\bf Unique\_lock} \\ \hline
+\rowcolor[HTML]{EFEFEF} 
+lock                                                       &                   & X                  \\ \hline
+\rowcolor[HTML]{EFEFEF} 
+unlock                                                     &                   & X                  \\ \hline
+\rowcolor[HTML]{EFEFEF} 
+try\_lock                                                  &                   & X                  \\ \hline
+\rowcolor[HTML]{CBCEFB} 
+try\_lock\_for                                             &                   & X                  \\ \hline
+\rowcolor[HTML]{CBCEFB} 
+try\_lock\_until                                           &                   & X                  \\ \hline
+\end{tabular}
+\end{table}
+\begin{itemize}
+  \item \textit{Lock\_guard} obviamente no posee ningún método dado que el \textit{lock} y \textit{unlock} lo realiza al instante en que se construye y destruye el objeto. \textit{Unique\_lock} posee todos los métodos pero para invocar a los dos últimos, el \textit{mutex} manejado debe ser del tipo \textit{timed}.
+\end{itemize}
+\end{frame}
+%==================================================================================
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Simulando un monitor de $\mu$C++}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+
+class Monitor {
+public:
+  Monitor();
+  ~Monitor();
+  
+private:
+  std::recursive_mutex mutex;
+  
+  void method1();
+  void method2();  
+};
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Simulando un monitor de $\mu$C++}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include "monitor.hpp"
+
+void Monitor::method1() {
+  std::unique_lock<std::recursive_mutex> lock (mutex);
+  // critical section
+}
+
+void Monitor::method2() {
+  std::unique_lock<std::recursive_mutex> lock (mutex);
+  // critical section
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+
+%==================================================================================
+\begin{frame}{Mutex}
+\begin{block}{Funciones adicionales}
+\begin{itemize}
+  \item Dentro del header \textit{mutex} se pueden encontrar las siguientes funciones adicionales: \textbf{lock}, \textbf{try\_lock}, \textbf{call\_once}.
+  \item La \textbf{función lock} toma como parámetro una lista de objetos del tipo \textit{mutex} de los cuales intentará obtener el \textit{lock}. En caso en que no se logren obtener todos los \textit{locks}, la función realizará un \textbf{rollback} quedando todos los \textit{locks} nuevamente liberados. En caso de éxito, la función retornará y la hebra podrá acceder a la sección crítica. Una vez que se ejecutó la sección crítica, se deben liberar de forma manual todos los \textit{locks} que se obtuvieron.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Uso de la función lock}
+\begin{itemize}
+  \item El \textbf{orden} en que se especifican los mutex \textbf{no es importante}. La función fue diseñada de tal forma para aliviar al programador el tener que escribir la adquisición de \textit{locks} en un determinado orden con el fin evitar \textit{deadlocks}.
+\end{itemize}
+  \begin{columns}
+  \begin{column}{.45\textwidth}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+std::mutex mutex1, mutex2;
+void task1() {
+  std::lock(mutex1, mutex2);
+  // critical section
+  mutex1.unlock();
+  mutex2.unlock();
+}
+\end{lstlisting}
+  \end{column}
+  \begin{column}{.45\textwidth}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+
+
+void task2() {
+  std::lock(mutex2, mutex1);
+  // critical section
+  mutex1.unlock();
+  mutex2.unlock();
+}
+\end{lstlisting}
+  \end{column}
+  \end{columns}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Funciones adicionales}
+\begin{itemize}
+  \item La función \textbf{try\_lock} funciona de forma similar a la función \textit{lock} pero invocará al método \textit{try\_lock} de todos los \textit{mutex} que se le indiquen dentro de la lista de parámetros.
+  \item \textit{Try\_lock} retornará -1 en caso en que obtenga todos los \textit{locks} satisfatoriamente o un número entero indicando el índice del primer \textit{mutex} del cual no logró adquirir su \textit{lock}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Mutex}
+\begin{block}{Funciones adicionales: call\_once y once\_flag}
+\begin{itemize}
+  \item Si tenemos una función que será ejecutada por múltiples hebras y deseamos que cierta parte de la función sea solo ejecutada por tan solo una hebra, podemos utilizar la función \textbf{call\_once} para especificar las líneas de código que deben ejecutarse solo una vez.
+  \item La función call\_once recibe como parámetro una función, un objeto funcional, un lambda o cualquer otro objeto que se comporte como función para indicar el código a ejecutar.
+  \item \textit{Call\_once} necesita verificar una variable del tipo \textbf{once\_flag} para ver si el código ya fue o no ejecutado por alguna otra hebra.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Mutex}
+\begin{block}{Uso de call\_once}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <mutex>
+
+std::once_flag flag;
+
+void task() {
+  std::call_once(flag, []() {
+    std::cout << "print just once" << std::endl;
+  });
+  std::cout << "print every single time" << std::endl;
+}
+
+\end{lstlisting}
+\end{block}
+\end{frame}

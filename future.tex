@@ -1,0 +1,135 @@
+\begin{frame}{Future}
+\begin{block}{Comunicación asíncrona con Future}
+\begin{itemize}
+  \item \#include \textless future\textgreater .
+  \item La función \textbf{async} nos permite lanzar la ejecución de una hebra sin que necesariamente comience su ejecución inmediatamente.
+  \item Si la función que lanzamos asíncronamente retornar algún valor, podemos consultar por el valor retornado almacenándolo en una variable del tipo \textbf{future}.
+  \item La clase \textit{future} es una clase \textit{template} (de igual forma que \textit{atomic}), en donde se debe especificar el tipo de dato que será utilizado en el \textit{template}. El tipo de dato tiene que corresponderse con el tipo de dato retornado por la función lanzada asíncronamente.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Future}
+\begin{block}{Comunicación asíncrona con Future}
+\begin{itemize}
+  \item En general se puede ver el \textit{header future} como un conjunto de utilidades que permiten acceso asíncrono a valores que serán seteados por \textit{proveedores} corriendo en otras hebras de ejecución.
+  \item El método \textbf{get} es el método principal de los objetos del tipo \textit{future}. El método \textit{get} es el que obliga a que el valor sea finalmente calculado/seteado en caso en que todavía no lo haya sido. En el caso en que el valor todavía no se encuentre disponible, la hebra ejecutando el método \textit{get} se \textbf{bloqueará} hasta que el valor se encuentre disponible.
+  \item La hebra calculando el valor puede setear una \textbf{excepción} en el valor a retornar, lanzándose efectivamente al momento en que se realiza la llamada a \textit{get}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Future}
+\begin{block}{Ejemplo de future}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <future>
+
+int add(int a, int b) {
+  return a+b;
+}
+
+int main(int argc, char *argv[]) {
+  std::future<int> result ( std::async(add, 2, 4) );
+  
+  std::cout << result.get() << std::endl;
+  
+  return 0;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Future}
+\begin{block}{Proveedores para future}
+\begin{itemize}
+  \item La función \textbf{async} es la más fácil de utilizar para proveer de valores a las variables del tipo future.
+  \item Además de la función \textit{async}, se cuenta con los objetos de las clases \textit{promise} y \textit{packaged\_task}.
+  \item La clase \textbf{promise} es una clase \textit{template} que permite proveer de \textbf{valores} o de \textbf{excepciones} a variables del tipo \textit{future}.
+  \item Los métodos principales de un objeto promise son \textbf{get\_future}, \textbf{set\_value} y \textbf{set\_exception}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Future}
+\begin{block}{Proveedores para future - promise}
+\begin{itemize}
+  \item El método \textbf{get\_future} es la forma en la que se \textbf{vincula} el \textit{future} con el \textit{promise}.
+  \item Se debe invocar al método \textit{get\_future} cuando se está construyendo/incializando el objeto del tipo \textit{future}. Posterior a esta invocación, el objeto del tipo \textit{promise} y \textit{future} poseerán un estado compartido.
+  \item Solo puede retornarse \textbf{un future por promise}.
+  \item Una vez que se ha generado el vínculo, se espera que en algún momento el \textit{promise} setee el valor esperado por el \textit{future}, o que simplemente setee alguna excepción para que sea lanzada por el \textit{future} al intentar recuperar el valor con el método \textit{get}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Future}
+\begin{block}{Proveedores para future - promise}
+\begin{itemize}
+  \item Si se llegase a ejecutar el destructor de la variable de tipo \textit{promise} sin que ésta haya alcanzado a setear algún valor o excepción, el estado de la información pasará a estar como \textbf{disponible} y la invocación del método \textit{get} del \textit{future} retornará. En el momento en que retorne \textit{get}, se lanzará una excepción del tipo \textbf{future\_error}.
+  \item Cuando en alguna hebra de ejecución se invoca a una de los métodos \textbf{set\_value} o \textbf{set\_exception}, el estado cambia a disponible y la hebra bloqueada en la invocación a \textit{get} retorna.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Future}
+\begin{block}{Ejemplo de future y promise}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <future>
+#include <thread>
+#include <exception>
+
+void print(std::future<int> & future) {
+  try {
+    std::cout << future.get() << std::endl;
+  } catch(std::exception & e) {
+    std::cerr << e.what() << std::endl;
+  }
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Future}
+\begin{block}{Ejemplo de future y promise}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+int main(int argc, char *argv[]) {
+  std::promise<int> promise;
+  std::future<int> future ( promise.get_future() );
+  std::thread thread (print, std::ref(future));
+  promise.set_value(15);
+  
+  thread.join();
+  
+  return 0;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Future}
+\begin{block}{Proveedores para future - packaged\_task}
+\begin{itemize}
+  \item La clase \textbf{packaged\_task} funciona de forma similar al \textit{promise} pero se diferencian en que la primera envuelve a un \textbf{objeto llamable} (una función, una expresión lambda, un functor etc.).
+  \item El valor retornado por el objeto funcional es lo que se setea como valor a almacenar en el \textit{future}, es decir, ya no es necesario especificar el valor a través de alguna llamada a \textit{set\_value} como se hacía en los objetos \textit{promise}.
+  \item La clase packaged\_task es una clase template y dentro de los parámetros del template se debe especificar el tipo de retorno de la función y los tipos de variables de los parámetros.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Future}
+\begin{block}{Ejemplo de future y packaged\_task}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+int add(int a, int b) {
+  return a+b;
+}
+
+int main(int argc, char *argv[]) {
+  std::packaged_task<int(int,int)> task (add);
+  std::future<int> future ( task.get_future() );
+  std::thread thread (std::move(task), 3, 4);
+  std::cout << future.get() << std::endl;
+  thread.join();  
+  return 0;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}

@@ -1,0 +1,17 @@
+\frametitle{Future}
+\begin{block}{Ejemplo de future y packaged\_task}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+int add(int a, int b) {
+  return a+b;
+}
+
+int main(int argc, char *argv[]) {
+  std::packaged_task<int(int,int)> task (add);
+  std::future<int> future ( task.get_future() );
+  std::thread thread (std::move(task), 3, 4);
+  std::cout << future.get() << std::endl;
+  thread.join();
+  return 0;
+}
+\end{lstlisting}
+\end{block}

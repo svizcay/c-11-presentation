@@ -1,0 +1,25 @@
+\begin{frame}{Compilación}
+%\begin{block}{Example block}
+\begin{itemize}
+  \item C++11 utilza hebras provistas por la plataforma.
+  \begin{itemize}
+    \item pthreads Unix.
+    \item win32 threads Windows
+  \end{itemize}
+  \item Consultar por la biblioteca de hebras utilizadas por el compilador.
+  \begin{itemize}
+    \item \$ g++ -v (buscar por la línea \textit{Thread model}).
+  \end{itemize}
+  \vfill
+  \item Compilar con flag -std=c++11 o -std=c++0x, y enlazar con pthreads.
+  \begin{itemize}
+    \item g++ -c -Wall \textbf{-std=c++11} -o main.o main.cpp
+    \item g++ -o program.exe main.o \textbf{-pthreads}
+  \end{itemize}
+  \item En caso de error al enlazar con pthread.
+  \begin{itemize}
+    \item g++ -o program.exe main.o \textbf{-pthreads} \textbf{-Wl,--no-as-needed}
+  \end{itemize}
+\end{itemize}
+%\end{block}
+\end{frame}

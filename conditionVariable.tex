@@ -1,0 +1,193 @@
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item \#include \textless condition\_variable\textgreater
+  \item Las \textbf{variables de condición} manejan una lista de hebras que se encuentran a la \textbf{espera} de que otra hebra notifique algún \textbf{evento}.
+  \item Toda hebra que necesita esperar por alguna variable de condición, \textbf{DEBE} haber adquirido previamente el \textit{lock}.
+  \item El \textit{lock} es \textbf{liberado} una vez que la hebra \textbf{comienza a esperar} en la variable de condición.
+  \item El \textit{lock} es \textbf{obtenido nuevamente} una vez que la hebra es \textbf{señalizada para continuar}.
+\end{itemize}
+%\begin{lstlisting}[language=C++, basicstyle=\small]
+%#include <mutex>
+%void print(int value1, int value2, int value3) {
+%  static std::mutex m;
+%  m.lock();
+%  std::cout << value1 << " ";
+%  std::cout << value2 << " ";
+%  std::cout << value3 << " ";
+%  std::cout << std::endl;
+%  m.unlock();
+%}
+%\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item El mutex \textbf{DEBE} ser manejado por el wrapper \textbf{unique\_lock}.
+  \item Si se desea utilizar \textbf{otro tipo de wrapper}, se debe utilizar una variable de condición del tipo \textbf{condition\_variable\_any}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item Los métodos principales son \textit{wait}, \textit{notify\_one} y \textit{notify\_all}.
+  \item El método \textbf{wait} bloquea a la hebra en espera del evento en particular.
+  \item El método \textbf{notify\_one} despertará a solo una hebra que se encuentre en la cola de hebras esperando por el evento que representa la variable de condición. En caso en que no haya ninguna hebra esperando, no sucede nada en particular.
+  \item El método \textbf{notify\_all} despertará a todas las hebras esperando por tal evento. Notar que las hebras despertadas aún tendrán que tomar el \textit{lock} nuevamente, por lo que la ejecución de ellas y su acceso a la sección critica sigue siendo serializado. De igual forma a \textit{notify\_one}, si no existe ninguna hebra en la cola de espera, no sucederá nada especial.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item El método \textit{wait} toma como primer parámetro obligatorio el \textit{mutex} del cual debe liberar el \textit{lock} antes de bloquearse.
+  \item El segundo parametro es opcional y corresponde a un \textbf{predicado} (algo que puede evaluarse a true o false) que indicará si la hebra debe efectivamente despertar o seguir bloqueada aun cuando se haya despertado.
+  \item El especificar un predicado es equivalente a envolver la llamada a \textit{wait} con un \textbf{\textit{while}} verificando por la negación del predicado.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Especificando un predicado}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+std::mutex mutex;
+std::unique_lock<std::mutex> lock (mutex);
+std::condition_variable insertOne;
+while( counter == 0) {
+  insertOne.wait(lock);
+}
+\end{lstlisting}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+std::mutex mutex;
+std::unique_lock<std::mutex> lock (mutex);
+std::condition_variable insertOne;
+insertOne.wait(lock, [counter]() -> bool {
+  return counter != 0});
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Spurious Wakes}
+\begin{itemize}
+  \item Cuando no se especifica un \textit{predicado} en el segundo parámetro del \textit{wait}, hay que tener cuidado de envolver la llamada a \textit{wait} con un \textbf{while} y no con una simple instrucción \textit{if}.
+  \item Una hebra puede despertar aun cuando no se haya realizado ninguna señalización a través de algún \textit{notify}. Esto es conocido como \textbf{spurious wakes} (despertar erróneo) y no pueden ser predichos. Spurious wakes generalmente ocurren cuando la biblioteca de hebras no puede asegurar que la hebra dormida no se perderá de alguna notificación, por lo que decide despertarla para evitar el riesgo.
+  \item Al utilizar un while o un predicado, nos aseguramos que la hebra despierta solamente cuando corresponde.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Ejemplo completo de variables de condición}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+class Buffer {
+public:
+  Buffer(unsigned size_ = 0);
+  ~Buffer();
+  void insert(int item);
+  int remove();
+private:
+  unsigned size;
+  unsigned counter;
+  int *items;
+  std::conditional_variable removeOne, insertOne;
+  std::mutex mutex;
+};
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Ejemplo completo de variables de condición}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include "buffer.hpp"
+Buffer::Buffer(unsigned size_) : size(size_),
+  counter(0), items(new int[size_]) {}
+  
+Buffer::~Buffer() {
+  delete [] items;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Ejemplo completo de variables de condición}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+void Buffer::insert(int item) {
+  std::unique_lock<std::mutex> lock (mutex);
+  removeOne.wait(lock, [this]() -> bool {
+    return counter != size;});
+  items[counter] = item;
+  counter++;
+  
+  insertOne.notify_one();
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Ejemplo completo de variables de condición}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+void Buffer::remove() {
+  std::unique_lock<std::mutex> lock (mutex);
+  while (counter == 0) {
+    insertOne.wait(lock);
+  }
+  counter--;
+  int item = items[counter];
+  
+  removeOne.notify_one();
+  
+  return item;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Ejemplo completo de variables de condición}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <thread>
+#include "buffer.hpp"
+
+void consumer(int tid, Buffer & buffer) {
+  int value = buffer.remove();
+  std::cout << "thread=" << tid;
+  std::cout << " took the value ";
+  std::cout << value << std::endl;
+}
+
+void producer(int tid, Buffer & buffer) {
+  buffer.insert(tid);
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Condition\_variable}
+\begin{block}{Ejemplo completo de variables de condición}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+int main(int argc, char *argv[]) {
+  Buffer buffer (5);
+  std::thread consumers[1000], producers[1000];
+  
+  for (unsigned i = 0; i < 1000; i++) {
+    consumers[i] = std::thread(consumer, i, std::ref(buffer));
+    producers[i] = std::thread(producer, i, std::ref(buffer));
+  }
+  for (unsigned i = 0; i < 1000; i++) {
+    consumers[i].join();
+    producers[i].join();
+  }
+  return 0;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}

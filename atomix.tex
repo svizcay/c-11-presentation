@@ -1,0 +1,86 @@
+\begin{frame}{Atomic}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item \#include \textless atomic\textgreater .
+  \item \textbf{Atomic} permite la implementación de algoritmos libres de \textit{locks}.
+  \item Operaciones atómicas presentan mejor performance que su equivalente utilizando locks.
+  \item Uno debe especificar el tipo de variable que será tratada de forma atómica (\textit{thread-safe}).
+  \item Va a depender de la implementación el mecanismo utilizado para asegurar que la operación sea \textit{thread-safe}, pudiendo incluso llegar a utilizarse \textit{locks}. Generalmente para \textbf{tipos de datos básicos}, las implementaciones quedan \textbf{libres de locks}.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}{Atomic}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item Los métodos principales son load y store.
+  \item El método \textbf{load} funciona como los métodos \textit{get} y simplemente retorna el valor actual. El método \textbf{store} setea un nuevo valor a la variable del tipo \textit{atomic}.
+  \item Existe otro método llamado \textbf{exchange}, el cual setea un nuevo valor a la variable atómica y al mismo tiempo retorna el valor antiguo.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Atomic}
+\begin{block}{Ejemplo de atomic}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <atomic>
+int main(int argc, char *argv[]) {
+  int initialValue = 5;
+  std::atomic<int> atomic (initialValue);
+  int newValue = 10;
+  atomic.store(newValue);
+  int lastValue = atomic.load();
+  
+  return 0;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}{Atomic}
+\begin{block}{Características principales}
+\begin{itemize}
+  \item Los métodos \textit{load} y \textit{store} permiten además especificar el \textbf{modelo de memoria} a utilizar (secuencialmente consistente es el modelo por defecto).
+  \item Los modelos de memoria describen si los accesos a memoria pueden ser optimizados ya sea por el compilador o por el procesador. Si el modelo es relajado, se permite que las operaciones sean reordenadas o combinadas con el fin de mejorar el performance.
+  \item El modelo más estricto es el secuencialmente consistente, el cual es el por defecto.
+\end{itemize}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Atomic}
+\begin{block}{Ejemplo del método exchange}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <atomic>
+std::atomic<bool> winner (false);
+
+void race() {
+  if (!winner.exchange(true)) {
+    std::cout << "winner id = ";
+    std::cout << std::this_thread::get_id() << std::endl;
+  }
+}
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Atomic}
+\begin{block}{Ejemplo del método exchange}
+\begin{lstlisting}[language=C++, basicstyle=\small]
+#include <thread>
+
+int main(int argc, char *argv[]) {
+  std::thread threads[10];
+  
+  for (unsigned i = 0; i < 10; i++) {
+    threads[i] = std::thread(race);
+  }
+  
+  for (unsigned i = 0; i < 10; i++) {
+    threads[i].join();
+  }
+  
+  return 0;
+}
+\end{lstlisting}
+\end{block}
+\end{frame}

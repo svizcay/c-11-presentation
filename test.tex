@@ -1,0 +1,64 @@
+\documentclass[xcolor=table]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{xcolor} % for setting colors
+\usetheme{ZBH}
+
+% set the default code style
+\lstset{
+	frame=tb, % draw a frame at the top and bottom of the code block
+    tabsize=2, % tab space width
+    showstringspaces=false, % don't mark spaces in strings
+    numbers=left, % display line numbers on the left
+    commentstyle=\color{green}, % comment color
+    keywordstyle=\color{blue}, % keyword color
+    stringstyle=\color{orange} % string color
+}
+
+\author{Sebastián Vizcay}
+\title{Concurrencia y nuevas características en C++11}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+
+\titlepage
+\end{frame}
+
+\begin{frame}{Concurrencia en C++11}
+\begin{block}{Tabla de contenidos}
+\begin{itemize}
+  \item El header thread
+  \item El header mutex
+  \item El header condition\_variable
+  \item El header atomix
+  \item El header future
+  \item Compilación
+\end{itemize}
+\end{block}
+%	\tableofcontents
+\end{frame}
+
+\section{el header thread}
+\include{thread}
+
+\section{el header mutex}
+\include{mutex}
+
+\section{el header condition\_variable}
+\include{conditionVariable}
+
+\section{el header atomic}
+\include{atomix}
+
+\section{el header future}
+\include{future}
+
+\section{compilación}
+\include{compilacion}
+
+\section{}
+\include{consultas}
+
+\end{document}
